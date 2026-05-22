@@ -1,0 +1,17 @@
+### 1. 创建对话
+POST http://localhost:8080/api/tourist/conversation/start?deviceId=test001&attractionId=1
+
+### 2. 发送文本消息（将 conversationId 替换为上一步返回的 data 值）
+POST http://localhost:8080/api/tourist/conversation/1/message/text
+Content-Type: application/json
+
+{"text": "你好灵灵，请介绍一下灵山胜境有什么好玩的？"}
+
+### 3. 查看历史消息
+GET http://localhost:8080/api/tourist/conversation/1/messages
+
+### 4. 流式对话（SSE）
+POST http://localhost:8080/api/tourist/conversation/1/message/stream
+Content-Type: application/json
+
+{"text": "九龙灌浴是什么时候表演的？"}
