@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240">
+  <!-- Face -->
+  <ellipse cx="100" cy="100" rx="65" ry="70" fill="#fce4c8" stroke="#e8c9a0" stroke-width="2"/>
+  <!-- Hair -->
+  <ellipse cx="100" cy="65" rx="68" ry="55" fill="#3a2a1a"/>
+  <!-- Bangs -->
+  <ellipse cx="100" cy="55" rx="66" ry="30" fill="#4a3828"/>
+  <!-- Eyes -->
+  <ellipse cx="78" cy="90" rx="9" ry="12" fill="#333"/>
+  <ellipse cx="122" cy="90" rx="9" ry="12" fill="#333"/>
+  <circle cx="81" cy="86" r="3.5" fill="white"/>
+  <circle cx="125" cy="86" r="3.5" fill="white"/>
+  <!-- Blush -->
+  <ellipse cx="62" cy="105" rx="11" ry="6" fill="#ffcdd2" opacity="0.5"/>
+  <ellipse cx="138" cy="105" rx="11" ry="6" fill="#ffcdd2" opacity="0.5"/>
+  <!-- Mouth (idle smile) -->
+  <path d="M85,125 Q100,135 115,125" stroke="#c97" fill="none" stroke-width="3" stroke-linecap="round"/>
+  <!-- Body -->
+  <rect x="60" y="170" width="80" height="70" rx="12" fill="#2e8b57"/>
+  <!-- Collar -->
+  <rect x="72" y="170" width="56" height="14" rx="4" fill="white"/>
+  <!-- Scarf -->
+  <rect x="68" y="182" width="64" height="8" rx="3" fill="#1a6638"/>
+  <!-- Name tag -->
+  <rect x="82" y="195" width="36" height="18" rx="3" fill="white"/>
+  <text x="100" y="208" text-anchor="middle" font-size="9" fill="#2e8b57" font-family="sans-serif">导游</text>
+</svg>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>灵灵 - AI智能导游</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 顶部栏 -->
+<header class="topbar">
+  <div class="topbar-back" id="backBtn" style="display:none">&lt;</div>
+  <div class="topbar-avatar" id="guideAvatar">
+    <div class="avatar-circle">灵</div>
+  </div>
+  <div class="topbar-info">
+    <div class="topbar-name" id="guideName">灵灵</div>
+    <div class="topbar-status">在线</div>
+  </div>
+</header>
+
+<!-- 数字人形象区 -->
+<section class="avatar-stage" id="avatarStage">
+  <div class="digital-human dh-state-idle" id="digitalHuman">
+    <img class="dh-image" id="dhImage" src="digital-human/placeholder.svg" alt="AI导游">
+    <div class="avatar-ripple">
+      <div class="ripple r1"></div>
+      <div class="ripple r2"></div>
+      <div class="ripple r3"></div>
+    </div>
+  </div>
+  <div class="avatar-label">AI数字人导游</div>
+</section>
+
+<!-- 快捷入口 -->
+<nav class="quick-actions" id="quickActions">
+  <button class="quick-btn" data-q="这里有什么好玩的？">有什么好玩的</button>
+  <button class="quick-btn" data-q="推荐一条游览路线">推荐路线</button>
+  <button class="quick-btn" data-q="现在有什么特色表演？">特色表演</button>
+</nav>
+
+<!-- 对话消息区 -->
+<main class="chat-area" id="chatArea">
+  <div class="chat-empty" id="chatEmpty">
+    <div class="empty-icon">💬</div>
+    <div class="empty-text">你好！我是灵灵，你的AI导游<br>点击上方快捷问题或输入文字开始对话</div>
+  </div>
+</main>
+
+<!-- 底部输入栏 -->
+<footer class="input-bar">
+  <button class="input-voice" id="voiceBtn" title="按住说话">🎤</button>
+  <input type="text" class="input-field" id="msgInput" placeholder="输入你想问的..." autocomplete="off">
+  <button class="input-send" id="sendBtn">发送</button>
+</footer>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
