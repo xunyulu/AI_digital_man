@@ -4,6 +4,7 @@ import com.example.demo.dto.response.ApiResponse;
 import com.example.demo.entity.KnowledgePoint;
 import com.example.demo.repository.KnowledgePointRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +17,7 @@ public class KnowledgePointController {
     private final KnowledgePointRepository knowledgePointRepository;
 
     @GetMapping
+    @Transactional(readOnly = true)
     public ApiResponse<List<KnowledgePoint>> list(@RequestParam(required = false) Long scenicSpotId) {
         if (scenicSpotId != null) {
             return ApiResponse.success(knowledgePointRepository.findByScenicSpotId(scenicSpotId));

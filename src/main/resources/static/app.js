@@ -58,12 +58,17 @@ async function sendMessage(text) {
 
   // Send + stream
   isStreaming = true;
+  let hasContent = false;
   try {
     const res = await fetch('/api/tourist/conversation/' + conversationId + '/message/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: text })
     });
+
+    if (!res.ok) {
+      throw new Error('HTTP ' + res.status);
+    }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -74,22 +79,34 @@ async function sendMessage(text) {
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      // Parse SSE: "data: content\n\n"
       const lines = buffer.split('\n');
-      buffer = lines.pop() || ''; // keep incomplete line in buffer
+      buffer = lines.pop() || '';
 
       for (const line of lines) {
         if (line.startsWith('data:')) {
           let content = line.substring(5);
           if (content) {
+            hasContent = true;
             appendToBubble(aiBubble, content);
           }
         }
       }
     }
+
+    // Flush remaining buffer (final incomplete line after stream ends)
+    if (buffer && buffer.startsWith('data:')) {
+      let content = buffer.substring(5);
+      if (content) {
+        hasContent = true;
+        appendToBubble(aiBubble, content);
+      }
+    }
   } catch(e) {
-    appendToBubble(aiBubble, ' [网络异常，请重试]');
-    console.error(e);
+    // Only show error if NO content was received (real network failure)
+    if (!hasContent) {
+      appendToBubble(aiBubble, ' [网络异常，请重试]');
+    }
+    console.error('SSE stream ended:', e.message);
   }
 
   // Remove typing dots

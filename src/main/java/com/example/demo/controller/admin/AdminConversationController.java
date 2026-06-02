@@ -8,6 +8,7 @@ import com.example.demo.repository.MessageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,6 +23,7 @@ public class AdminConversationController {
     private final MessageRepository messageRepository;
 
     @GetMapping("/conversations")
+    @Transactional(readOnly = true)
     public ApiResponse<Page<Conversation>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {

@@ -7,6 +7,7 @@ import com.example.demo.repository.AttractionRepository;
 import com.example.demo.repository.ScenicSpotRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -77,7 +78,7 @@ public class AttractionService {
     }
 
     public AttractionDetail getAttractionDetail(Long id) {
-        Attraction a = attractionRepository.findById(id)
+        Attraction a = attractionRepository.findByIdWithScenicSpot(id)
                 .orElseThrow(() -> new RuntimeException("景点不存在"));
 
         return AttractionDetail.builder()

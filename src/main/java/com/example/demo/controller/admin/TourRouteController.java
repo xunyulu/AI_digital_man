@@ -20,6 +20,7 @@ public class TourRouteController {
     private final TourRouteAttractionRepository routeAttractionRepository;
 
     @GetMapping
+    @Transactional(readOnly = true)
     public ApiResponse<List<TourRoute>> list(@RequestParam(required = false) Long scenicSpotId) {
         if (scenicSpotId != null) {
             return ApiResponse.success(tourRouteRepository.findByScenicSpotIdOrderBySortOrder(scenicSpotId));

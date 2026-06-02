@@ -138,6 +138,7 @@ public class ConversationService {
         return List.of(); // Will be implemented properly
     }
 
+    @Transactional(readOnly = true)
     public List<ConversationSummary> getConversationsByTourist(Tourist tourist) {
         List<Conversation> conversations = conversationRepository.findByTouristIdOrderByUpdatedAtDesc(tourist.getId());
 
