@@ -1,7 +1,6 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.request.SubmitRatingRequest;
-import com.example.demo.dto.response.ApiResponse;
 import com.example.demo.entity.Attraction;
 import com.example.demo.entity.Conversation;
 import com.example.demo.entity.Rating;
@@ -43,18 +42,25 @@ public class RatingService {
         ratingRepository.save(rating);
     }
 
-    public Map<String, Object> getRatingStats(Long attractionId) {
+    public Map<String, Object> getRatingStats(Long attractionId, Long scenicSpotId) {
         Map<String, Object> stats = new HashMap<>();
         Double avgScore;
 
         if (attractionId != null) {
             List<Rating> ratings = ratingRepository.findByAttractionId(attractionId);
             avgScore = ratings.stream().mapToInt(Rating::getScore).average().orElse(0);
+        } else if (scenicSpotId != null) {
+            avgScore = ratingRepository.getAverageScoreByScenicSpotId(scenicSpotId);
         } else {
             avgScore = ratingRepository.getAverageScore();
         }
         stats.put("averageScore", avgScore != null ? Math.round(avgScore * 10.0) / 10.0 : 0);
-        stats.put("totalCount", ratingRepository.count());
+
+        if (scenicSpotId != null) {
+            stats.put("totalCount", ratingRepository.countByAttractionScenicSpotId(scenicSpotId));
+        } else {
+            stats.put("totalCount", ratingRepository.count());
+        }
 
         List<Object[]> dist = ratingRepository.getScoreDistribution();
         Map<Integer, Long> distribution = new HashMap<>();

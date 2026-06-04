@@ -15,7 +15,7 @@ public class DashboardController {
     private final AdminService adminService;
 
     @GetMapping("/dashboard/stats")
-    public ApiResponse<Map<String, Object>> getStats() {
-        return ApiResponse.success(adminService.getDashboardStats());
+    public ApiResponse<Map<String, Object>> getStats(@RequestParam(required = false) Long scenicSpotId) {
+        return ApiResponse.success(adminService.getDashboardStats(scenicSpotId));
     }
 }

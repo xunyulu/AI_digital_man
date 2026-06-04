@@ -8,4 +8,6 @@ public interface TourRouteAttractionRepository extends JpaRepository<TourRouteAt
     List<TourRouteAttraction> findByRouteIdOrderBySortOrder(Long routeId);
 
     void deleteByRouteId(Long routeId);
+
+    void deleteByAttractionId(Long attractionId);
 }

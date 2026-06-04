@@ -26,7 +26,13 @@ public class AdminConversationController {
     @Transactional(readOnly = true)
     public ApiResponse<Page<Conversation>> list(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Long scenicSpotId) {
+        if (scenicSpotId != null) {
+            return ApiResponse.success(
+                    conversationRepository.findByAttractionScenicSpotIdOrderByUpdatedAtDesc(
+                            scenicSpotId, PageRequest.of(page, size)));
+        }
         return ApiResponse.success(
                 conversationRepository.findAllByOrderByUpdatedAtDesc(PageRequest.of(page, size)));
     }

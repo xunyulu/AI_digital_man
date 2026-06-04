@@ -29,6 +29,6 @@ public class TouristRatingController {
 
     @GetMapping("/ratings/stats")
     public ApiResponse<Map<String, Object>> getStats(@RequestParam(required = false) Long attractionId) {
-        return ApiResponse.success(ratingService.getRatingStats(attractionId));
+        return ApiResponse.success(ratingService.getRatingStats(attractionId, null));
     }
 }

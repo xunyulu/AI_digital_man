@@ -28,7 +28,8 @@ public class AdminRatingController {
     }
 
     @GetMapping("/ratings/stats")
-    public ApiResponse<Map<String, Object>> stats(@RequestParam(required = false) Long attractionId) {
-        return ApiResponse.success(ratingService.getRatingStats(attractionId));
+    public ApiResponse<Map<String, Object>> stats(@RequestParam(required = false) Long attractionId,
+                                                   @RequestParam(required = false) Long scenicSpotId) {
+        return ApiResponse.success(ratingService.getRatingStats(attractionId, scenicSpotId));
     }
 }

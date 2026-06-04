@@ -21,12 +21,18 @@ public class ReportController {
     private final ConversationRepository conversationRepository;
 
     @GetMapping("/sentiment")
-    public ApiResponse<Map<String, Object>> sentiment() {
+    public ApiResponse<Map<String, Object>> sentiment(@RequestParam(required = false) Long scenicSpotId) {
         Map<String, Object> report = new HashMap<>();
 
-        // Top user queries
-        var userMessages = messageRepository.findTop50ByRoleOrderByCreatedAtDesc("user",
-                PageRequest.of(0, 50));
+        // Top user queries — filtered by scenic spot if provided
+        List<Message> userMessages;
+        if (scenicSpotId != null) {
+            userMessages = messageRepository.findTopByAttractionScenicSpotIdAndRoleOrderByCreatedAtDesc(
+                    scenicSpotId, "user", PageRequest.of(0, 50));
+        } else {
+            userMessages = messageRepository.findTop50ByRoleOrderByCreatedAtDesc("user",
+                    PageRequest.of(0, 50));
+        }
         List<String> queries = userMessages.stream()
                 .map(Message::getContent)
                 .filter(c -> c != null && !c.isEmpty())
@@ -35,8 +41,15 @@ public class ReportController {
         report.put("recentQueries", queries);
 
         // Rating stats
-        long totalRatings = ratingRepository.count();
-        Double avgScore = ratingRepository.getAverageScore();
+        long totalRatings;
+        Double avgScore;
+        if (scenicSpotId != null) {
+            totalRatings = ratingRepository.countByAttractionScenicSpotId(scenicSpotId);
+            avgScore = ratingRepository.getAverageScoreByScenicSpotId(scenicSpotId);
+        } else {
+            totalRatings = ratingRepository.count();
+            avgScore = ratingRepository.getAverageScore();
+        }
         report.put("totalRatings", totalRatings);
         report.put("averageScore", avgScore != null ? Math.round(avgScore * 10.0) / 10.0 : 0);
 

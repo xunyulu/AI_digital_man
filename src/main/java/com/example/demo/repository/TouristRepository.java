@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface TouristRepository extends JpaRepository<Tourist, Long> {
     Optional<Tourist> findByDeviceId(String deviceId);
+    Optional<Tourist> findByUsername(String username);
+    boolean existsByUsername(String username);
 }

@@ -19,6 +19,12 @@ public class Tourist {
     @Column(name = "device_id", length = 100, unique = true, nullable = false)
     private String deviceId;
 
+    @Column(length = 50, unique = true)
+    private String username;
+
+    @Column(length = 200)
+    private String password;
+
     @Column(length = 50)
     private String nickname;
 
