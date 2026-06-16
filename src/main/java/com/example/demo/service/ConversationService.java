@@ -5,6 +5,7 @@ import com.example.demo.dto.response.MessageResponse;
 import com.example.demo.entity.*;
 import com.example.demo.repository.*;
 import com.example.demo.service.ai.AIService;
+import com.example.demo.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ public class ConversationService {
     private final AttractionRepository attractionRepository;
     private final AIService aiService;
     private final com.example.demo.service.ai.TTSService ttsService;
+    private final SystemConfigService configService;
 
     @Transactional
     public Conversation startConversation(Tourist tourist, Long attractionId) {
@@ -107,11 +109,19 @@ public class ConversationService {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new RuntimeException("对话不存在"));
 
+        // 解析景区ID：优先对话关联的景点 → 回退管理员设置的活跃景区
+        Long scenicSpotId = null;
+        if (conversation.getAttraction() != null) {
+            scenicSpotId = conversation.getAttraction().getScenicSpot().getId();
+        } else {
+            scenicSpotId = configService.getActiveScenicSpotId();
+        }
+
         String messageType = "text";
         String audioUrl = null;
 
         try {
-            byte[] audioBytes = ttsService.synthesize(replyContent);
+            byte[] audioBytes = ttsService.synthesize(replyContent, scenicSpotId);
             String fileName = "msg_" + System.currentTimeMillis() + ".mp3";
             java.nio.file.Path audioPath = java.nio.file.Paths.get("audio", fileName);
             java.nio.file.Files.write(audioPath, audioBytes);

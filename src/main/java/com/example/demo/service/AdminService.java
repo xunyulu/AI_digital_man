@@ -89,8 +89,8 @@ public class AdminService {
             stats.put("totalConversations", conversationRepository.countByAttractionScenicSpotId(scenicSpotId));
             stats.put("activeConversations", conversationRepository.countByAttractionScenicSpotIdAndStatus(scenicSpotId, "ACTIVE"));
             stats.put("totalTourists", conversationRepository.countDistinctTouristsByScenicSpotId(scenicSpotId));
-            stats.put("totalRatings", ratingRepository.countByAttractionScenicSpotId(scenicSpotId));
-            Double avgScore = ratingRepository.getAverageScoreByScenicSpotId(scenicSpotId);
+            stats.put("totalRatings", ratingRepository.countByAnyScenicSpotId(scenicSpotId));
+            Double avgScore = ratingRepository.getAverageScoreByAnyScenicSpotId(scenicSpotId);
             stats.put("averageScore", avgScore != null ? Math.round(avgScore * 10.0) / 10.0 : 0);
         } else {
             stats.put("totalConversations", conversationRepository.count());

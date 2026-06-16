@@ -28,6 +28,10 @@ public class Rating {
     @JoinColumn(name = "attraction_id")
     private Attraction attraction;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "scenic_spot_id")
+    private ScenicSpot scenicSpot;
+
     @Column(nullable = false)
     private Integer score;
 

@@ -8,56 +8,107 @@
 </head>
 <body>
 
-<!-- 顶部栏 -->
-<header class="topbar">
-  <div class="topbar-back" id="backBtn" style="display:none">&lt;</div>
-  <div class="topbar-avatar" id="guideAvatar">
-    <div class="avatar-circle">灵</div>
-  </div>
-  <div class="topbar-info">
-    <div class="topbar-name" id="guideName">灵灵</div>
-    <div class="topbar-status">在线</div>
-  </div>
-</header>
+<div class="app-container">
 
-<!-- 数字人形象区 -->
-<section class="avatar-stage" id="avatarStage">
-  <div class="digital-human dh-state-idle" id="digitalHuman">
-    <img class="dh-image" id="dhImage" src="digital-human/placeholder.svg" alt="AI导游">
-    <div class="avatar-ripple">
-      <div class="ripple r1"></div>
-      <div class="ripple r2"></div>
-      <div class="ripple r3"></div>
+  <!-- ===== 左侧面板：数字人形象 ===== -->
+  <aside class="panel-left" id="panelLeft">
+    <!-- 顶部信息 -->
+    <div class="left-topbar">
+      <div class="left-avatar">
+        <div class="avatar-circle">灵</div>
+      </div>
+      <div class="left-info">
+        <div class="left-name" id="guideName">灵灵</div>
+        <div class="left-status">🟢 在线</div>
+      </div>
+      <button class="left-toggle" id="toggleLeft" title="收起">◀</button>
     </div>
-  </div>
-  <div class="avatar-label">AI数字人导游</div>
-</section>
 
-<!-- 快捷入口 -->
-<nav class="quick-actions" id="quickActions">
-  <button class="quick-btn" data-q="这里有什么好玩的？">有什么好玩的</button>
-  <button class="quick-btn" data-q="推荐一条游览路线">推荐路线</button>
-  <button class="quick-btn" data-q="现在有什么特色表演？">特色表演</button>
-</nav>
+    <!-- 数字人舞台 -->
+    <div class="digital-human-stage">
+      <div class="digital-human dh-state-idle" id="digitalHuman">
+        <img class="dh-image" id="dhImage" src="digital-human/placeholder.svg" alt="AI导游">
+        <div class="avatar-ripple">
+          <div class="ripple r1"></div>
+          <div class="ripple r2"></div>
+          <div class="ripple r3"></div>
+        </div>
+      </div>
+      <div class="avatar-label">AI数字人导游</div>
+    </div>
 
-<!-- 对话消息区 -->
-<main class="chat-area" id="chatArea">
-  <div class="chat-empty" id="chatEmpty">
-    <div class="empty-icon">💬</div>
-    <div class="empty-text">你好！我是灵灵，你的AI导游<br>点击上方快捷问题或输入文字开始对话</div>
-  </div>
-</main>
+    <!-- 快捷入口 -->
+    <nav class="quick-actions" id="quickActions">
+      <button class="quick-btn" data-q="这里有什么好玩的？">🎯 有什么好玩的</button>
+      <button class="quick-btn" data-q="推荐一条游览路线">🗺️ 推荐路线</button>
+      <button class="quick-btn" data-q="现在有什么特色表演？">🎭 特色表演</button>
+    </nav>
 
-<!-- 底部输入栏 -->
-<footer class="input-bar">
-  <button class="input-voice" id="voiceBtn" title="按住说话">🎤</button>
-  <input type="text" class="input-field" id="msgInput" placeholder="输入你想问的..." autocomplete="off">
-  <button class="input-send" id="sendBtn">发送</button>
-</footer>
+    <!-- 景区信息 -->
+    <div class="scenic-info-card" id="scenicInfoCard">
+      <div class="scenic-info-title" id="scenicInfoName">灵山胜境</div>
+      <div class="scenic-info-desc" id="scenicInfoDesc">加载中...</div>
+    </div>
+
+    <!-- 评分组件 -->
+    <div class="rating-widget" id="ratingWidget">
+      <div class="rating-title">为这次旅程打分</div>
+      <div class="rating-stars" id="ratingStars">
+        <span class="star" data-score="1" title="很差">☆</span>
+        <span class="star" data-score="2" title="较差">☆</span>
+        <span class="star" data-score="3" title="一般">☆</span>
+        <span class="star" data-score="4" title="不错">☆</span>
+        <span class="star" data-score="5" title="很棒">☆</span>
+      </div>
+      <div class="rating-hint" id="ratingHint">点击星星评分</div>
+      <div class="rating-done" id="ratingDone" style="display:none">✅ 感谢评价！</div>
+    </div>
+  </aside>
+
+  <!-- ===== 中间面板：对话区 ===== -->
+  <section class="panel-center" id="panelCenter">
+    <!-- 对话消息区 -->
+    <main class="chat-area" id="chatArea">
+      <div class="chat-empty" id="chatEmpty">
+        <div class="empty-icon">💬</div>
+        <div class="empty-text">你好！我是<span id="emptyGuideName">灵灵</span>，你的AI导游<br>点击左侧快捷问题或输入文字开始对话</div>
+      </div>
+    </main>
+
+    <!-- 底部输入栏 -->
+    <footer class="input-bar">
+      <button class="input-voice" id="voiceBtn" title="按住说话">🎤</button>
+      <input type="text" class="input-field" id="msgInput" placeholder="输入你想问的..." autocomplete="off">
+      <button class="input-send" id="sendBtn">发送</button>
+    </footer>
+  </section>
+
+  <!-- ===== 右侧面板：高德地图 ===== -->
+  <section class="panel-right" id="panelRight">
+    <!-- 地图容器 -->
+    <div class="map-container" id="amapContainer"></div>
+
+    <!-- 地图工具栏 -->
+    <div class="map-toolbar">
+      <button class="map-tool-btn" id="locateBtn" title="GPS定位">📍</button>
+      <button class="map-tool-btn" id="simulateBtn" title="模拟定位">🎯</button>
+      <button class="map-tool-btn" id="resetMapBtn" title="重置地图">🔄</button>
+      <span class="map-status" id="mapStatus">加载中...</span>
+    </div>
+
+    <!-- 地图信息条 -->
+    <div class="map-info-bar" id="mapInfoBar" style="display:none">
+      <span class="map-info-content" id="mapInfoContent"></span>
+      <button class="map-info-close" id="mapInfoClose">✕</button>
+    </div>
+  </section>
+
+</div>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <script src="app.js"></script>
+<script src="map.js"></script>
 </body>
 </html>

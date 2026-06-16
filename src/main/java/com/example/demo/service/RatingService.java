@@ -4,10 +4,12 @@ import com.example.demo.dto.request.SubmitRatingRequest;
 import com.example.demo.entity.Attraction;
 import com.example.demo.entity.Conversation;
 import com.example.demo.entity.Rating;
+import com.example.demo.entity.ScenicSpot;
 import com.example.demo.entity.Tourist;
 import com.example.demo.repository.AttractionRepository;
 import com.example.demo.repository.ConversationRepository;
 import com.example.demo.repository.RatingRepository;
+import com.example.demo.repository.ScenicSpotRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +24,7 @@ public class RatingService {
     private final RatingRepository ratingRepository;
     private final ConversationRepository conversationRepository;
     private final AttractionRepository attractionRepository;
+    private final ScenicSpotRepository scenicSpotRepository;
 
     public void submitRating(Tourist tourist, SubmitRatingRequest request) {
         Rating rating = Rating.builder()
@@ -38,6 +41,10 @@ public class RatingService {
             Attraction attr = attractionRepository.findById(request.getAttractionId()).orElse(null);
             rating.setAttraction(attr);
         }
+        if (request.getScenicSpotId() != null) {
+            ScenicSpot spot = scenicSpotRepository.findById(request.getScenicSpotId()).orElse(null);
+            rating.setScenicSpot(spot);
+        }
 
         ratingRepository.save(rating);
     }
@@ -49,20 +56,22 @@ public class RatingService {
         if (attractionId != null) {
             List<Rating> ratings = ratingRepository.findByAttractionId(attractionId);
             avgScore = ratings.stream().mapToInt(Rating::getScore).average().orElse(0);
+            stats.put("totalCount", (long) ratings.size());
         } else if (scenicSpotId != null) {
-            avgScore = ratingRepository.getAverageScoreByScenicSpotId(scenicSpotId);
+            avgScore = ratingRepository.getAverageScoreByAnyScenicSpotId(scenicSpotId);
+            stats.put("totalCount", ratingRepository.countByAnyScenicSpotId(scenicSpotId));
         } else {
             avgScore = ratingRepository.getAverageScore();
+            stats.put("totalCount", ratingRepository.count());
         }
         stats.put("averageScore", avgScore != null ? Math.round(avgScore * 10.0) / 10.0 : 0);
 
+        List<Object[]> dist;
         if (scenicSpotId != null) {
-            stats.put("totalCount", ratingRepository.countByAttractionScenicSpotId(scenicSpotId));
+            dist = ratingRepository.getScoreDistributionByAnyScenicSpotId(scenicSpotId);
         } else {
-            stats.put("totalCount", ratingRepository.count());
+            dist = ratingRepository.getScoreDistribution();
         }
-
-        List<Object[]> dist = ratingRepository.getScoreDistribution();
         Map<Integer, Long> distribution = new HashMap<>();
         for (int i = 1; i <= 5; i++) {
             distribution.put(i, 0L);

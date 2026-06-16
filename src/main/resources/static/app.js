@@ -1,7 +1,11 @@
 (function() {
 
 const deviceId = 'web-' + Date.now();
+// 暴露给 map.js 用于位置上报
+window.__tourGuideState = window.__tourGuideState || {};
+window.__tourGuideState.deviceId = deviceId;
 let conversationId = null;
+let activeScenicSpotId = null;
 let isStreaming = false;
 
 const $ = sel => document.querySelector(sel);
@@ -15,23 +19,55 @@ const toast = $('#toast');
 
 // ===== Init =====
 async function init() {
+  let activeName = '灵灵';
+  let activeId = null;
   try {
-    const res = await fetch('/api/tourist/scenic-spots');
-    const body = await res.json();
-    if (body.code === 200 && body.data && body.data.length > 0) {
-      const spot = body.data[0];
-      $('#guideName').textContent = spot.name || '灵灵';
+    // 优先读取管理员设置的活跃景区
+    const activeRes = await fetch('/api/tourist/active-scenic-spot');
+    const activeBody = await activeRes.json();
+    if (activeBody.code === 200 && activeBody.data && activeBody.data.name) {
+      activeName = activeBody.data.name;
+      activeId = activeBody.data.id;
+      activeScenicSpotId = activeBody.data.id;
+    } else {
+      // 回退到第一个景区
+      const res = await fetch('/api/tourist/scenic-spots');
+      const body = await res.json();
+      if (body.code === 200 && body.data && body.data.length > 0) {
+        activeName = body.data[0].name || '灵灵';
+        activeId = body.data[0].id;
+        activeScenicSpotId = body.data[0].id;
+      }
     }
-  } catch(e) {
-    console.log('加载景区信息失败', e);
+  } catch(e) { console.log('加载景区信息失败', e); }
+
+  // 更新所有景区名称展示
+  const guideEl = $('#guideName');
+  if (guideEl) guideEl.textContent = activeName;
+  const scenicNameEl = $('#scenicInfoName');
+  if (scenicNameEl) scenicNameEl.textContent = activeName;
+
+  // 加载景区详情
+  if (activeId) {
+    try {
+      const detailRes = await fetch('/api/tourist/scenic-spots/' + activeId);
+      const detailBody = await detailRes.json();
+      if (detailBody.code === 200 && detailBody.data) {
+        const spot = detailBody.data;
+        const descEl = $('#scenicInfoDesc');
+        if (descEl) descEl.textContent = spot.description || '暂无介绍';
+      }
+    } catch(e) { console.log('加载景区详情失败', e); }
   }
+
   await ensureConversation();
 }
 
 async function ensureConversation() {
   if (conversationId) return;
   try {
-    const res = await fetch('/api/tourist/conversation/start?deviceId=' + deviceId + '&attractionId=1', { method: 'POST' });
+    // 不传attractionId，让AI根据管理员设置的活跃景区来提供知识
+    const res = await fetch('/api/tourist/conversation/start?deviceId=' + deviceId, { method: 'POST' });
     const body = await res.json();
     if (body.code === 200) {
       conversationId = body.data;
@@ -114,6 +150,10 @@ async function sendMessage(text) {
   if (dots) dots.remove();
 
   isStreaming = false;
+
+  // Check if user/AI mentioned a place → highlight on map
+  const aiText = aiBubble.textContent || '';
+  checkAndHighlightOnMap(text + ' ' + aiText);
 
   // Fetch latest message to check for TTS audio
   try {
@@ -290,19 +330,129 @@ voiceBtn.addEventListener('touchend', e => { e.preventDefault(); stopRecording()
 quickBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     sendMessage(btn.dataset.q);
-    // Collapse avatar area after first message to save space
-    $('#avatarStage').classList.add('collapsed');
-    $('#quickActions').style.display = 'none';
   });
 });
 
-// Collapse avatar when user types
-msgInput.addEventListener('focus', () => {
-  if (chatArea.children.length > 0) {
-    $('#avatarStage').classList.add('collapsed');
-    $('#quickActions').style.display = 'none';
+// Listen for "问一问" from map marker InfoWindow
+window.addEventListener('chat:ask-about', (e) => {
+  const name = e.detail && e.detail.attractionName;
+  if (name && !isStreaming) {
+    sendMessage('请给我详细介绍一下' + name + '，包括它的特色和游览建议');
   }
 });
+
+// Left panel toggle
+const toggleLeft = $('#toggleLeft');
+const panelLeft = $('#panelLeft');
+if (toggleLeft && panelLeft) {
+  toggleLeft.addEventListener('click', () => {
+    panelLeft.classList.toggle('collapsed');
+    toggleLeft.textContent = panelLeft.classList.contains('collapsed') ? '▶' : '◀';
+    // Trigger map resize
+    window.dispatchEvent(new Event('resize'));
+  });
+}
+
+// ===== Rating =====
+let ratingSubmitted = false;
+const ratingStars = $('#ratingStars');
+const ratingHint = $('#ratingHint');
+const ratingDone = $('#ratingDone');
+
+if (ratingStars) {
+  const stars = ratingStars.querySelectorAll('.star');
+
+  stars.forEach(star => {
+    star.addEventListener('mouseenter', () => {
+      if (ratingSubmitted) return;
+      const score = parseInt(star.dataset.score);
+      highlightStars(score);
+      const hints = ['', '很差', '较差', '一般', '不错', '很棒'];
+      ratingHint.textContent = hints[score];
+    });
+
+    star.addEventListener('mouseleave', () => {
+      if (ratingSubmitted) return;
+      highlightStars(0);
+      ratingHint.textContent = '点击星星评分';
+    });
+
+    star.addEventListener('click', async () => {
+      if (ratingSubmitted) return;
+      const score = parseInt(star.dataset.score);
+      highlightStars(score);
+      ratingSubmitted = true;
+      ratingStars.classList.add('readonly');
+      ratingHint.style.display = 'none';
+      ratingDone.style.display = 'block';
+
+      // Submit to backend
+      try {
+        const activeConvId = conversationId;
+        const res = await fetch('/api/tourist/rating?deviceId=' + deviceId, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            score: score,
+            conversationId: activeConvId || null,
+            scenicSpotId: activeScenicSpotId || null,
+            comment: null
+          })
+        });
+        const body = await res.json();
+        if (body.code === 200) {
+          console.log('评分提交成功:', score + '分');
+        }
+      } catch(e) {
+        console.error('评分提交失败', e);
+        // Still show as done even if network fails — user experience first
+      }
+    });
+  });
+}
+
+function highlightStars(score) {
+  const stars = ratingStars.querySelectorAll('.star');
+  stars.forEach(s => {
+    const sVal = parseInt(s.dataset.score);
+    if (score >= sVal) {
+      s.textContent = '★';
+      s.classList.add('active');
+    } else {
+      s.textContent = '☆';
+      s.classList.remove('active');
+    }
+  });
+}
+
+// ===== Map Highlight: detect "go to" intent =====
+function checkAndHighlightOnMap(userText) {
+  if (!userText || !window.__highlightAttraction) return;
+
+  // Keywords indicating user wants to go somewhere
+  var goKeywords = /去|想去|到|带我去|怎么去|导航|在哪|怎么走|在哪里/;
+  if (!goKeywords.test(userText)) return;
+
+  // Get attraction names from the map's data
+  var attractions = (window.__tourGuideState && window.__tourGuideState.attractions) || [];
+  if (attractions.length === 0) return;
+
+  // Find the first attraction name mentioned in user's message
+  // Sort by name length descending to match longer names first (e.g., "灵山大佛" before "灵山")
+  var sorted = attractions.slice().sort(function(a, b) {
+    return (b.name || '').length - (a.name || '').length;
+  });
+
+  for (var i = 0; i < sorted.length; i++) {
+    var name = sorted[i].name;
+    if (!name || name.length < 2) continue;
+    if (userText.indexOf(name) !== -1) {
+      console.log('Map: highlighting', name);
+      window.__highlightAttraction(name);
+      return;
+    }
+  }
+}
 
 // ===== Start =====
 init();

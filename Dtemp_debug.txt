@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "<string>", line 5, in <module>
+    print(f'Line {i+1}: {lines[i][:150]}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2705' in position 15: illegal multibyte sequence

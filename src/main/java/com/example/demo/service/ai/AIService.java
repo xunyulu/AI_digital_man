@@ -3,6 +3,9 @@ package com.example.demo.service.ai;
 import com.example.demo.entity.Attraction;
 import com.example.demo.entity.Conversation;
 import com.example.demo.entity.Message;
+import com.example.demo.entity.ScenicSpot;
+import com.example.demo.repository.ScenicSpotRepository;
+import com.example.demo.service.SystemConfigService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -18,6 +21,8 @@ public class AIService {
     private final WebClient webClient;
     private final KnowledgeService knowledgeService;
     private final ToolService toolService;
+    private final SystemConfigService configService;
+    private final ScenicSpotRepository scenicSpotRepository;
 
     @Value("${DASHSCOPE_API_KEY:}")
     private String apiKey;
@@ -59,9 +64,12 @@ public class AIService {
         )
     );
 
-    public AIService(KnowledgeService knowledgeService, ToolService toolService) {
+    public AIService(KnowledgeService knowledgeService, ToolService toolService,
+                     SystemConfigService configService, ScenicSpotRepository scenicSpotRepository) {
         this.knowledgeService = knowledgeService;
         this.toolService = toolService;
+        this.configService = configService;
+        this.scenicSpotRepository = scenicSpotRepository;
         this.webClient = WebClient.builder()
                 .baseUrl(BASE_URL)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
@@ -286,15 +294,38 @@ public class AIService {
 
     private String buildSystemPrompt(Conversation conversation) {
         Attraction attr = conversation.getAttraction();
-        String scenicName = attr != null ? attr.getScenicSpot().getName() : "景区";
-        String attractionName = attr != null ? attr.getName() : "";
 
-        Long scenicSpotId = attr != null ? attr.getScenicSpot().getId() : null;
-        Long attractionId = attr != null ? attr.getId() : null;
+        // 解析景区ID：优先从对话关联的景点获取，回退到管理员设置的活跃景区
+        Long scenicSpotId = null;
+        String scenicName = "景区";
+        String attractionName = "";
+        Long attractionId = null;
+
+        if (attr != null) {
+            scenicSpotId = attr.getScenicSpot().getId();
+            scenicName = attr.getScenicSpot().getName();
+            attractionName = attr.getName();
+            attractionId = attr.getId();
+        } else {
+            // 对话没有关联景点，使用管理员设置的活跃景区
+            scenicSpotId = configService.getActiveScenicSpotId();
+            if (scenicSpotId != null) {
+                ScenicSpot activeSpot = scenicSpotRepository.findById(scenicSpotId).orElse(null);
+                if (activeSpot != null) {
+                    scenicName = activeSpot.getName();
+                }
+            }
+        }
+
+        // 从数据库读取导游名配置（支持景区覆盖）
+        String guideName = configService.getConfigValue(scenicSpotId, "guideName", "灵灵");
+
+        // 加载知识库
         String knowledgeContext = knowledgeService.searchContext(scenicSpotId, attractionId, "");
 
         StringBuilder prompt = new StringBuilder();
-        prompt.append("你是一位专业的景区AI导游，名字叫'灵灵'，性格热情友好、知识渊博。\n");
+        prompt.append("你是一位专业的景区AI导游，名字叫'").append(guideName)
+                .append("'，性格热情友好、知识渊博。\n");
         prompt.append("你正在").append(scenicName).append("为游客提供导览服务");
         if (!attractionName.isEmpty()) {
             prompt.append("，当前游客正在游览").append(attractionName);

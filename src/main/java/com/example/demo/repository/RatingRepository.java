@@ -20,6 +20,9 @@ public interface RatingRepository extends JpaRepository<Rating, Long> {
     @Query("SELECT r.score, COUNT(r) FROM Rating r GROUP BY r.score ORDER BY r.score")
     List<Object[]> getScoreDistribution();
 
+    @Query("SELECT r.score, COUNT(r) FROM Rating r WHERE r.attraction.scenicSpot.id = :scenicSpotId GROUP BY r.score ORDER BY r.score")
+    List<Object[]> getScoreDistributionByScenicSpotId(@Param("scenicSpotId") Long scenicSpotId);
+
     long count();
 
     long countByScore(int score);
@@ -28,4 +31,13 @@ public interface RatingRepository extends JpaRepository<Rating, Long> {
 
     @Query("SELECT AVG(r.score) FROM Rating r WHERE r.attraction.scenicSpot.id = :scenicSpotId")
     Double getAverageScoreByScenicSpotId(@Param("scenicSpotId") Long scenicSpotId);
+
+    @Query("SELECT r.score, COUNT(r) FROM Rating r LEFT JOIN r.attraction a LEFT JOIN a.scenicSpot ass LEFT JOIN r.scenicSpot ss WHERE ss.id = :scenicSpotId OR ass.id = :scenicSpotId GROUP BY r.score ORDER BY r.score")
+    List<Object[]> getScoreDistributionByAnyScenicSpotId(@Param("scenicSpotId") Long scenicSpotId);
+
+    @Query("SELECT COUNT(r) FROM Rating r LEFT JOIN r.attraction a LEFT JOIN a.scenicSpot ass LEFT JOIN r.scenicSpot ss WHERE ss.id = :scenicSpotId OR ass.id = :scenicSpotId")
+    long countByAnyScenicSpotId(@Param("scenicSpotId") Long scenicSpotId);
+
+    @Query("SELECT AVG(r.score) FROM Rating r LEFT JOIN r.attraction a LEFT JOIN a.scenicSpot ass LEFT JOIN r.scenicSpot ss WHERE ss.id = :scenicSpotId OR ass.id = :scenicSpotId")
+    Double getAverageScoreByAnyScenicSpotId(@Param("scenicSpotId") Long scenicSpotId);
 }

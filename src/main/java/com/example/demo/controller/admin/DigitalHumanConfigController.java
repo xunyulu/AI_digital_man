@@ -3,6 +3,7 @@ package com.example.demo.controller.admin;
 import com.example.demo.dto.response.ApiResponse;
 import com.example.demo.entity.SystemConfig;
 import com.example.demo.repository.SystemConfigRepository;
+import com.example.demo.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +16,7 @@ import java.util.Map;
 public class DigitalHumanConfigController {
 
     private final SystemConfigRepository configRepository;
+    private final SystemConfigService configService;
 
     /**
      * 获取配置：先加载全局配置，再用景区专属配置覆盖
@@ -56,5 +58,29 @@ public class DigitalHumanConfigController {
             configRepository.save(sc);
         });
         return ApiResponse.success("配置已保存");
+    }
+
+    /**
+     * 获取管理员当前选中的活跃景区ID
+     */
+    @GetMapping("/active-scenic-spot")
+    public ApiResponse<Map<String, Object>> getActiveScenicSpot() {
+        Long id = configService.getActiveScenicSpotId();
+        Map<String, Object> result = new HashMap<>();
+        result.put("scenicSpotId", id != null ? id : 0L);
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * 设置管理员当前选中的活跃景区ID（切换景区时调用）
+     */
+    @PutMapping("/active-scenic-spot")
+    public ApiResponse<String> setActiveScenicSpot(@RequestBody Map<String, Long> body) {
+        Long scenicSpotId = body.get("scenicSpotId");
+        if (scenicSpotId == null) {
+            return ApiResponse.error(400, "scenicSpotId is required");
+        }
+        configService.setActiveScenicSpotId(scenicSpotId);
+        return ApiResponse.success("active scenic spot updated");
     }
 }

@@ -1,5 +1,6 @@
 package com.example.demo.service.ai;
 
+import com.example.demo.service.SystemConfigService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -14,6 +15,7 @@ import java.util.Map;
 public class TTSService {
 
     private final WebClient webClient;
+    private final SystemConfigService configService;
 
     @Value("${DASHSCOPE_API_KEY:}")
     private String apiKey;
@@ -23,7 +25,8 @@ public class TTSService {
 
     private static final String BASE_URL = "https://dashscope.aliyuncs.com";
 
-    public TTSService() {
+    public TTSService(SystemConfigService configService) {
+        this.configService = configService;
         this.webClient = WebClient.builder()
                 .baseUrl(BASE_URL)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
@@ -31,12 +34,23 @@ public class TTSService {
     }
 
     public byte[] synthesize(String text) {
+        return synthesize(text, (Long) null);
+    }
+
+    /**
+     * 合成语音，根据景区读取对应的TTS语音配置
+     * @param text 要合成的文本
+     * @param scenicSpotId 景区ID，为null时使用默认语音
+     */
+    public byte[] synthesize(String text, Long scenicSpotId) {
+        // 根据景区读取语音配置，回退到全局配置，再回退到 application.properties 默认值
+        String effectiveVoice = configService.getConfigValue(scenicSpotId, "ttsVoice", this.voice);
         try {
             Map<String, Object> input = new HashMap<>();
             input.put("text", text);
 
             Map<String, Object> parameters = new HashMap<>();
-            parameters.put("voice", voice);
+            parameters.put("voice", effectiveVoice);
             parameters.put("format", "mp3");
 
             Map<String, Object> body = new HashMap<>();

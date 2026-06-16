@@ -99,6 +99,13 @@ const AppLayout = {
   async created() {
     this.loadingSpots = true
     await store.loadScenicSpots()
+    // 从后端同步当前活跃景区（处理多端或刷新场景）
+    try {
+      const res = await api.get('/api/admin/config/active-scenic-spot')
+      if (res.data && res.data.scenicSpotId && res.data.scenicSpotId > 0) {
+        store.setCurrentScenicId(res.data.scenicSpotId)
+      }
+    } catch(e) { /* ignore */ }
     this.currentId = store.currentScenicId
     this.loadingSpots = false
   },
@@ -106,7 +113,13 @@ const AppLayout = {
     async onSwitchScenic(id) {
       store.setCurrentScenicId(id)
       this.currentId = store.currentScenicId
-      ElementPlus.ElMessage.success('已切换到「' + store.getCurrentScenic().name + '」')
+      // 同步到后端，让游客端数字人知识库跟着切换
+      try {
+        await api.put('/api/admin/config/active-scenic-spot', { scenicSpotId: id })
+        ElementPlus.ElMessage.success('已切换到「' + store.getCurrentScenic().name + '」，数字人已同步')
+      } catch(e) {
+        ElementPlus.ElMessage.error('切换失败: ' + e.message)
+      }
     },
     handleLogout() {
       store.logout()

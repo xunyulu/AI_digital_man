@@ -111,7 +111,7 @@ const DashboardPage = {
     },
     async loadScoreChart() {
       try {
-        const res = await api.get('/api/admin/ratings/stats')
+        const res = await api.get('/api/admin/ratings/stats', { scenicSpotId: this.scenicId })
         if (res.data && res.data.distribution && this.scoreChart) {
           const dist = res.data.distribution
           this.scoreChart.setOption({
