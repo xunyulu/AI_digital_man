@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -17,6 +18,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ConversationService {
+
+    public static final String STREAM_AUDIO_PREFIX = "__TOUR_AUDIO_URL__:";
 
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
@@ -85,6 +88,7 @@ public class ConversationService {
         if (conversation.getAttraction() != null) {
             conversation.getAttraction().getScenicSpot().getName();
         }
+        Long scenicSpotIdForTts = resolveScenicSpotId(conversation);
 
         // Save user message
         Message userMessage = Message.builder()
@@ -100,30 +104,34 @@ public class ConversationService {
         StringBuilder fullReply = new StringBuilder();
         return aiService.chatStreamWithTools(conversation, history)
                 .doOnNext(fullReply::append)
-                .doFinally(signal -> saveAssistantMessage(conversationId, fullReply.toString()));
+                .concatWith(Mono.fromCallable(() -> {
+                    Message assistantMessage = saveAssistantMessage(conversationId, fullReply.toString(), scenicSpotIdForTts);
+                    String audioUrl = assistantMessage != null ? assistantMessage.getAudioUrl() : null;
+                    return STREAM_AUDIO_PREFIX + (audioUrl != null ? audioUrl : "");
+                }).onErrorReturn(STREAM_AUDIO_PREFIX));
     }
 
     @Transactional
-    public void saveAssistantMessage(Long conversationId, String replyContent) {
-        if (replyContent.isEmpty()) return;
+    public Message saveAssistantMessage(Long conversationId, String replyContent) {
+        return saveAssistantMessage(conversationId, replyContent, null);
+    }
+
+    @Transactional
+    public Message saveAssistantMessage(Long conversationId, String replyContent, Long scenicSpotId) {
+        if (replyContent.isEmpty()) return null;
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new RuntimeException("对话不存在"));
 
-        // 解析景区ID：优先对话关联的景点 → 回退管理员设置的活跃景区
-        Long scenicSpotId = null;
-        if (conversation.getAttraction() != null) {
-            scenicSpotId = conversation.getAttraction().getScenicSpot().getId();
-        } else {
-            scenicSpotId = configService.getActiveScenicSpotId();
-        }
+        Long effectiveScenicSpotId = scenicSpotId != null ? scenicSpotId : configService.getActiveScenicSpotId();
 
         String messageType = "text";
         String audioUrl = null;
 
         try {
-            byte[] audioBytes = ttsService.synthesize(replyContent, scenicSpotId);
+            byte[] audioBytes = ttsService.synthesize(replyContent, effectiveScenicSpotId);
             String fileName = "msg_" + System.currentTimeMillis() + ".mp3";
             java.nio.file.Path audioPath = java.nio.file.Paths.get("audio", fileName);
+            java.nio.file.Files.createDirectories(audioPath.getParent());
             java.nio.file.Files.write(audioPath, audioBytes);
             audioUrl = "/audio/" + fileName;
             messageType = "multimodal";
@@ -138,9 +146,17 @@ public class ConversationService {
                 .messageType(messageType)
                 .audioUrl(audioUrl)
                 .build();
-        messageRepository.save(assistantMessage);
+        Message savedMessage = messageRepository.save(assistantMessage);
         conversation.setUpdatedAt(java.time.LocalDateTime.now());
         conversationRepository.save(conversation);
+        return savedMessage;
+    }
+
+    private Long resolveScenicSpotId(Conversation conversation) {
+        if (conversation.getAttraction() != null) {
+            return conversation.getAttraction().getScenicSpot().getId();
+        }
+        return configService.getActiveScenicSpotId();
     }
 
     public List<ConversationSummary> getConversationsByDeviceId(String deviceId) {

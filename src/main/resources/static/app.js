@@ -14,13 +14,20 @@ const chatEmpty = $('#chatEmpty');
 const msgInput = $('#msgInput');
 const sendBtn = $('#sendBtn');
 const voiceBtn = $('#voiceBtn');
+const autoAudioBtn = $('#autoAudioBtn');
 const quickBtns = document.querySelectorAll('.quick-btn');
 const toast = $('#toast');
+
+const STREAM_AUDIO_PREFIX = '__TOUR_AUDIO_URL__:';
+let autoPlayAudio = localStorage.getItem('tourGuideAutoAudio') !== 'false';
+let currentAudio = null;
+let currentAudioControls = null;
 
 // ===== Init =====
 async function init() {
   let activeName = '灵灵';
   let activeId = null;
+  const descEl = $('#scenicInfoDesc');
   try {
     // 优先读取管理员设置的活跃景区
     const activeRes = await fetch('/api/tourist/active-scenic-spot');
@@ -39,7 +46,11 @@ async function init() {
         activeScenicSpotId = body.data[0].id;
       }
     }
-  } catch(e) { console.log('加载景区信息失败', e); }
+  } catch(e) {
+    if (descEl) descEl.textContent = '景区信息加载失败，请确认后端服务已启动';
+    showToast('景区信息加载失败');
+    console.log('加载景区信息失败', e);
+  }
 
   // 更新所有景区名称展示
   const guideEl = $('#guideName');
@@ -54,34 +65,45 @@ async function init() {
       const detailBody = await detailRes.json();
       if (detailBody.code === 200 && detailBody.data) {
         const spot = detailBody.data;
-        const descEl = $('#scenicInfoDesc');
         if (descEl) descEl.textContent = spot.description || '暂无介绍';
       }
-    } catch(e) { console.log('加载景区详情失败', e); }
+    } catch(e) {
+      if (descEl) descEl.textContent = '景区详情加载失败';
+      console.log('加载景区详情失败', e);
+    }
+  } else if (descEl && descEl.textContent === '加载中...') {
+    descEl.textContent = '暂无景区信息';
   }
 
   await ensureConversation();
 }
 
 async function ensureConversation() {
-  if (conversationId) return;
+  if (conversationId) return true;
   try {
     // 不传attractionId，让AI根据管理员设置的活跃景区来提供知识
-    const res = await fetch('/api/tourist/conversation/start?deviceId=' + deviceId, { method: 'POST' });
+    const res = await fetch('/api/tourist/conversation/start?deviceId=' + encodeURIComponent(deviceId), { method: 'POST' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const body = await res.json();
     if (body.code === 200) {
       conversationId = body.data;
+      return true;
     }
   } catch(e) {
+    showToast('创建对话失败，请检查后端服务');
     console.log('创建对话失败', e);
   }
+  return false;
 }
 
 // ===== Send Message =====
 async function sendMessage(text) {
   if (!text.trim() || isStreaming) return;
-  await ensureConversation();
-  if (!conversationId) return;
+  const ready = await ensureConversation();
+  if (!ready || !conversationId) {
+    showToast('对话未创建，暂时不能发送');
+    return;
+  }
 
   // Hide empty state
   chatEmpty.style.display = 'none';
@@ -95,6 +117,18 @@ async function sendMessage(text) {
   // Send + stream
   isStreaming = true;
   let hasContent = false;
+  let audioUrl = null;
+  const handleStreamContent = content => {
+    if (content.startsWith(STREAM_AUDIO_PREFIX)) {
+      audioUrl = content.substring(STREAM_AUDIO_PREFIX.length).trim() || null;
+      return;
+    }
+    if (content) {
+      hasContent = true;
+      appendToBubble(aiBubble, content);
+    }
+  };
+
   try {
     const res = await fetch('/api/tourist/conversation/' + conversationId + '/message/stream', {
       method: 'POST',
@@ -120,22 +154,14 @@ async function sendMessage(text) {
 
       for (const line of lines) {
         if (line.startsWith('data:')) {
-          let content = line.substring(5);
-          if (content) {
-            hasContent = true;
-            appendToBubble(aiBubble, content);
-          }
+          handleStreamContent(line.substring(5));
         }
       }
     }
 
     // Flush remaining buffer (final incomplete line after stream ends)
     if (buffer && buffer.startsWith('data:')) {
-      let content = buffer.substring(5);
-      if (content) {
-        hasContent = true;
-        appendToBubble(aiBubble, content);
-      }
+      handleStreamContent(buffer.substring(5));
     }
   } catch(e) {
     // Only show error if NO content was received (real network failure)
@@ -155,18 +181,8 @@ async function sendMessage(text) {
   const aiText = aiBubble.textContent || '';
   checkAndHighlightOnMap(text + ' ' + aiText);
 
-  // Fetch latest message to check for TTS audio
-  try {
-    const msgRes = await fetch('/api/tourist/conversation/' + conversationId + '/messages');
-    const msgBody = await msgRes.json();
-    if (msgBody.code === 200 && msgBody.data && msgBody.data.length > 0) {
-      const lastMsg = msgBody.data[msgBody.data.length - 1];
-      if (lastMsg.audioUrl) {
-        playAudio(lastMsg.audioUrl, aiBubble);
-      }
-    }
-  } catch(e) {
-    console.log('获取音频失败', e);
+  if (audioUrl) {
+    playAudio(audioUrl, aiBubble);
   }
 }
 
@@ -220,23 +236,132 @@ function scrollToBottom() {
 }
 
 function playAudio(url, bubble) {
-  const audio = new Audio(url);
-  // Add replay button if not already in bubble
-  if (bubble && !bubble.querySelector('.play-audio')) {
-    const btn = document.createElement('button');
-    btn.className = 'play-audio';
-    btn.textContent = '🔊 播报';
-    btn.addEventListener('click', () => {
-      setDHState('speaking');
-      audio.currentTime = 0;
-      audio.play();
-    });
-    bubble.appendChild(btn);
+  if (!bubble) return;
+  let controls = bubble.querySelector('.audio-controls');
+  if (controls && controls._audio) {
+    if (autoPlayAudio) startAudio(controls._audio, controls, true);
+    return;
   }
-  setDHState('speaking');
-  audio.play().catch(e => console.log('音频播放失败', e));
-  audio.addEventListener('ended', () => setDHState('idle'));
-  audio.addEventListener('error', () => setDHState('idle'));
+
+  const audio = new Audio(url);
+  controls = document.createElement('div');
+  controls.className = 'audio-controls';
+  controls._audio = audio;
+
+  const replayBtn = createAudioButton('↻', '重播');
+  const pauseBtn = createAudioButton(autoPlayAudio ? '⏸' : '▶', '暂停/继续');
+  const stopBtn = createAudioButton('■', '停止');
+  const status = document.createElement('span');
+  status.className = 'audio-status';
+  status.textContent = autoPlayAudio ? '准备播报' : '待播报';
+
+  controls.appendChild(replayBtn);
+  controls.appendChild(pauseBtn);
+  controls.appendChild(stopBtn);
+  controls.appendChild(status);
+  bubble.appendChild(controls);
+
+  replayBtn.addEventListener('click', () => startAudio(audio, controls, true));
+  pauseBtn.addEventListener('click', () => {
+    if (audio.paused) {
+      startAudio(audio, controls, false);
+    } else {
+      audio.pause();
+      status.textContent = '已暂停';
+    }
+  });
+  stopBtn.addEventListener('click', () => stopAudio(audio, controls));
+
+  audio.addEventListener('play', () => {
+    pauseBtn.textContent = '⏸';
+    status.textContent = '播报中';
+    setDHState('speaking');
+  });
+  audio.addEventListener('pause', () => {
+    if (!audio.ended) {
+      pauseBtn.textContent = '▶';
+      if (currentAudio === audio) setDHState('idle');
+    }
+  });
+  audio.addEventListener('ended', () => {
+    pauseBtn.textContent = '▶';
+    status.textContent = '已结束';
+    if (currentAudio === audio) {
+      currentAudio = null;
+      currentAudioControls = null;
+      setDHState('idle');
+    }
+  });
+  audio.addEventListener('error', () => {
+    status.textContent = '播放失败';
+    if (currentAudio === audio) setDHState('idle');
+  });
+
+  if (autoPlayAudio) startAudio(audio, controls, true);
+  scrollToBottom();
+}
+
+function createAudioButton(text, title) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = text;
+  btn.title = title;
+  return btn;
+}
+
+function startAudio(audio, controls, restart) {
+  if (currentAudio && currentAudio !== audio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    if (currentAudioControls) {
+      const status = currentAudioControls.querySelector('.audio-status');
+      if (status) status.textContent = '已停止';
+    }
+  }
+  if (restart) audio.currentTime = 0;
+  currentAudio = audio;
+  currentAudioControls = controls;
+  audio.play().catch(e => {
+    const status = controls.querySelector('.audio-status');
+    const pauseBtn = controls.children[1];
+    if (status) status.textContent = '点击播放';
+    if (pauseBtn) pauseBtn.textContent = '▶';
+    if (currentAudio === audio) {
+      currentAudio = null;
+      currentAudioControls = null;
+      setDHState('idle');
+    }
+    console.log('音频播放失败', e);
+  });
+}
+
+function stopAudio(audio, controls) {
+  audio.pause();
+  audio.currentTime = 0;
+  if (!controls) {
+    if (currentAudio === audio) {
+      currentAudio = null;
+      currentAudioControls = null;
+      setDHState('idle');
+    }
+    return;
+  }
+  const status = controls.querySelector('.audio-status');
+  const pauseBtn = controls.children[1];
+  if (status) status.textContent = '已停止';
+  if (pauseBtn) pauseBtn.textContent = '▶';
+  if (currentAudio === audio) {
+    currentAudio = null;
+    currentAudioControls = null;
+    setDHState('idle');
+  }
+}
+
+function syncAutoAudioButton() {
+  if (!autoAudioBtn) return;
+  autoAudioBtn.classList.toggle('active', autoPlayAudio);
+  autoAudioBtn.textContent = autoPlayAudio ? '🔊' : '🔇';
+  autoAudioBtn.title = autoPlayAudio ? '自动播报：开' : '自动播报：关';
 }
 
 function setDHState(state) {
@@ -266,6 +391,19 @@ msgInput.addEventListener('keydown', (e) => {
     sendBtn.click();
   }
 });
+
+if (autoAudioBtn) {
+  syncAutoAudioButton();
+  autoAudioBtn.addEventListener('click', () => {
+    autoPlayAudio = !autoPlayAudio;
+    localStorage.setItem('tourGuideAutoAudio', String(autoPlayAudio));
+    syncAutoAudioButton();
+    showToast(autoPlayAudio ? '自动播报已开启' : '自动播报已关闭');
+    if (!autoPlayAudio && currentAudio) {
+      stopAudio(currentAudio, currentAudioControls);
+    }
+  });
+}
 
 // ===== Voice Recording (push-to-talk) =====
 let mediaRecorder = null;
